@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &8731517090844116728
+--- !u!1 &1631490036000210431
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,48 +8,48 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2888785272624029267}
-  - component: {fileID: 5583429355347285740}
-  - component: {fileID: 6354021461478931958}
-  - component: {fileID: 4284903694405843247}
-  - component: {fileID: 4805594358685607225}
-  m_Layer: 3
-  m_Name: Boid
-  m_TagString: Boid
+  - component: {fileID: 4072803505390502383}
+  - component: {fileID: 4591078727204917125}
+  - component: {fileID: 4134364631868105869}
+  - component: {fileID: 7415196120320846238}
+  - component: {fileID: 5918715402593528466}
+  m_Layer: 6
+  m_Name: Food
+  m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2888785272624029267
+--- !u!4 &4072803505390502383
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8731517090844116728}
+  m_GameObject: {fileID: 1631490036000210431}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.0008883551}
+  m_LocalPosition: {x: -1.7, y: 0, z: 1.68}
   m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &5583429355347285740
+--- !u!33 &4591078727204917125
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8731517090844116728}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &6354021461478931958
+  m_GameObject: {fileID: 1631490036000210431}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &4134364631868105869
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8731517090844116728}
+  m_GameObject: {fileID: 1631490036000210431}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -63,7 +63,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 3e87b12cb4c99d944a38aeee7333e28a, type: 2}
+  - {fileID: 2100000, guid: ae6c2a82ecf62984a9b20a8fafce3c04, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -85,13 +85,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!135 &4284903694405843247
-SphereCollider:
+--- !u!65 &7415196120320846238
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8731517090844116728}
+  m_GameObject: {fileID: 1631490036000210431}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -100,37 +100,21 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.5
+  m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &4805594358685607225
+--- !u!114 &5918715402593528466
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8731517090844116728}
+  m_GameObject: {fileID: 1631490036000210431}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 040903a5323223242bfaae8cefcbe447, type: 3}
+  m_Script: {fileID: 11500000, guid: bf48864d4cc78424d8917f7161f2d04d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxSpeed: 4
-  maxForce: 3
-  neighborRadius: 3
-  separationRadius: 1
-  boidLayer:
-    serializedVersion: 2
-    m_Bits: 8
-  foodLayer:
-    serializedVersion: 2
-    m_Bits: 64
-  hunterLayer:
-    serializedVersion: 2
-    m_Bits: 128
-  manager: {fileID: 0}
-  foodDetectRadius: 6
-  hunterDetectRadius: 10
