@@ -13,15 +13,16 @@ public class Bullet : MonoBehaviour
         Destroy(gameObject, lifeTime);
     }
 
+    void Update()
+    {
+        transform.Translate(Vector3.forward * rbSpeed * Time.deltaTime);
+    }
+
     void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.layer == LayerMask.NameToLayer("Boid"))
         {
             Destroy(other.gameObject);
-            Destroy(this.gameObject);
-        }
-        else if (other.gameObject.layer == LayerMask.NameToLayer("Food"))
-        {
             Destroy(this.gameObject);
         }
     }

@@ -12,12 +12,10 @@ public class Boid : MonoBehaviour
     [Header("Perception")]
     public float neighborRadius = 3f;
     public float separationRadius = 1f;
-    public LayerMask boidLayer;
-    public LayerMask foodLayer;
-    public LayerMask hunterLayer;
 
     [Header("References")]
     public BoidManager manager;
+    public GameBounds gameBounds;
 
     [Header("Decision thresholds")]
     public float foodDetectRadius = 6f;
@@ -29,12 +27,18 @@ public class Boid : MonoBehaviour
     void Start()
     {
         velocity = transform.forward * (maxSpeed * 0.5f);
+
+        if (gameBounds == null && manager != null)
+            gameBounds = manager.gameBounds;
     }
 
     void Update()
     {
-        targetFood = FindClosestInLayer(foodLayer, foodDetectRadius);
-        hunterTransform = FindClosestInLayer(hunterLayer, hunterDetectRadius);
+        if (manager != null)
+        {
+            targetFood = FindClosestInLayer(manager.GetLayerObjects(1 << LayerMask.NameToLayer("Food")), foodDetectRadius);
+            hunterTransform = FindClosestInLayer(manager.GetLayerObjects(1 << LayerMask.NameToLayer("Hunter")), hunterDetectRadius);
+        }
 
         Vector3 acceleration = Vector3.zero;
 
@@ -61,33 +65,49 @@ public class Boid : MonoBehaviour
         velocity = Utils.Limit(velocity, maxSpeed);
 
         transform.position += velocity * Time.deltaTime;
+
+        // Fijar altura
+        Vector3 pos = transform.position;
+        pos.y = 0f;
+
+        if (gameBounds != null)
+            pos = gameBounds.ClampPosition(pos);
+
+        transform.position = pos;
+
         if (velocity.sqrMagnitude > 0.001f)
             transform.rotation = Quaternion.LookRotation(velocity);
     }
 
-    Transform FindClosestInLayer(LayerMask layer, float radius)
+    Transform FindClosestInLayer(List<GameObject> objects, float radius)
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, radius, layer);
         Transform best = null;
-        float bestDist = Mathf.Infinity;
-        foreach (var c in cols)
+        float bestDistSqr = radius * radius;
+
+        foreach (var obj in objects)
         {
-            float d = Vector3.SqrMagnitude(c.transform.position - transform.position);
-            if (d < bestDist)
+            if (obj == null) continue;
+            float distSqr = (obj.transform.position - transform.position).sqrMagnitude;
+            if (distSqr < bestDistSqr)
             {
-                best = c.transform;
-                bestDist = d;
+                best = obj.transform;
+                bestDistSqr = distSqr;
             }
         }
+
         return best;
     }
 
     bool HasNeighbors()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, neighborRadius, boidLayer);
-        int count = 0;
-        foreach (var c in cols) if (c.transform != transform) count++;
-        return count > 0;
+        float rSqr = neighborRadius * neighborRadius;
+        foreach (var other in manager.boids)
+        {
+            if (other == null || other == gameObject) continue;
+            if ((other.transform.position - transform.position).sqrMagnitude <= rSqr)
+                return true;
+        }
+        return false;
     }
 
     Vector3 Flocking()
@@ -102,43 +122,52 @@ public class Boid : MonoBehaviour
 
     Vector3 Separation()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, separationRadius, boidLayer);
         Vector3 steer = Vector3.zero;
         int count = 0;
-        foreach (var c in cols)
+        float rSqr = separationRadius * separationRadius;
+
+        foreach (var other in manager.boids)
         {
-            if (c.transform == transform) continue;
-            Vector3 diff = transform.position - c.transform.position;
-            float d = diff.magnitude;
-            if (d > 0)
+            if (other == null || other == gameObject) continue;
+            float distSqr = (other.transform.position - transform.position).sqrMagnitude;
+            if (distSqr <= rSqr)
             {
-                steer += diff.normalized / d;
+                Vector3 diff = transform.position - other.transform.position;
+                steer += diff.normalized / Mathf.Sqrt(distSqr);
                 count++;
             }
         }
+
         if (count > 0)
         {
             steer /= count;
             steer = steer.normalized * maxSpeed - velocity;
             steer = Vector3.ClampMagnitude(steer, maxForce);
         }
+
         return steer;
     }
 
     Vector3 Alignment()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, neighborRadius, boidLayer);
         Vector3 sumVel = Vector3.zero;
         int count = 0;
-        foreach (var c in cols)
+        float rSqr = neighborRadius * neighborRadius;
+
+        foreach (var other in manager.boids)
         {
-            if (c.transform == transform) continue;
-            Boid b = c.GetComponent<Boid>();
-            if (b == null) continue;
-            sumVel += b.velocity;
-            count++;
+            if (other == null || other == gameObject) continue;
+            if ((other.transform.position - transform.position).sqrMagnitude <= rSqr)
+            {
+                Boid b = other.GetComponent<Boid>();
+                if (b == null) continue;
+                sumVel += b.GetVelocity();
+                count++;
+            }
         }
+
         if (count == 0) return Vector3.zero;
+
         Vector3 avg = sumVel / count;
         Vector3 desired = avg.normalized * maxSpeed;
         Vector3 steer = desired - velocity;
@@ -147,15 +176,20 @@ public class Boid : MonoBehaviour
 
     Vector3 Cohesion()
     {
-        Collider[] cols = Physics.OverlapSphere(transform.position, neighborRadius, boidLayer);
         Vector3 center = Vector3.zero;
         int count = 0;
-        foreach (var c in cols)
+        float rSqr = neighborRadius * neighborRadius;
+
+        foreach (var other in manager.boids)
         {
-            if (c.transform == transform) continue;
-            center += c.transform.position;
-            count++;
+            if (other == null || other == gameObject) continue;
+            if ((other.transform.position - transform.position).sqrMagnitude <= rSqr)
+            {
+                center += other.transform.position;
+                count++;
+            }
         }
+
         if (count == 0) return Vector3.zero;
         center /= count;
         return Seek(center);
