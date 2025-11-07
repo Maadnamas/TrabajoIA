@@ -975,6 +975,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4bacabb48bf5db478d99c9ffced4e9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  drawDebugPaths: 1
+  debugColor: {r: 1, g: 0, b: 1, a: 1}
 --- !u!4 &360074887
 Transform:
   m_ObjectHideFlags: 0
@@ -1159,7 +1161,7 @@ GameObject:
   - component: {fileID: 432846817}
   - component: {fileID: 432846816}
   - component: {fileID: 432846815}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: NCP_Azul
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1178,15 +1180,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0b04ff7f43e63f48a50ad88b38c3ec4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3.5
+  moveSpeed: 2
+  rotationSpeed: 3
   stoppingDistance: 0.3
   patrolNodes:
   - {fileID: 116587126}
   - {fileID: 382272179}
   - {fileID: 125561547}
   - {fileID: 980924806}
-  isChasing: 0
-  isAlerted: 0
+  searchDuration: 4
+  currentState: 0
 --- !u!114 &432846816
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1252,8 +1255,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 84
   m_CollisionDetection: 0
@@ -1391,7 +1394,7 @@ GameObject:
   - component: {fileID: 617730812}
   - component: {fileID: 617730811}
   - component: {fileID: 617730810}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: NCP_Amarillo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1410,13 +1413,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0b04ff7f43e63f48a50ad88b38c3ec4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3.5
+  moveSpeed: 2
+  rotationSpeed: 3
   stoppingDistance: 0.3
   patrolNodes:
   - {fileID: 1181702870}
   - {fileID: 875158413}
-  isChasing: 0
-  isAlerted: 0
+  searchDuration: 4
+  currentState: 0
 --- !u!114 &617730811
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1482,8 +1486,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 84
   m_CollisionDetection: 0
@@ -2319,7 +2323,7 @@ GameObject:
   - component: {fileID: 952182215}
   - component: {fileID: 952182214}
   - component: {fileID: 952182213}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3319,7 +3323,7 @@ GameObject:
   - component: {fileID: 1319472510}
   - component: {fileID: 1319472509}
   - component: {fileID: 1319472508}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3475,7 +3479,7 @@ GameObject:
   - component: {fileID: 1517141420}
   - component: {fileID: 1517141419}
   - component: {fileID: 1517141418}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: NCP_Rojo
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3494,15 +3498,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0b04ff7f43e63f48a50ad88b38c3ec4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3.5
+  moveSpeed: 2
+  rotationSpeed: 3
   stoppingDistance: 0.3
   patrolNodes:
   - {fileID: 4540854}
   - {fileID: 125401928}
   - {fileID: 382272179}
   - {fileID: 116587126}
-  isChasing: 0
-  isAlerted: 0
+  searchDuration: 4
+  currentState: 0
 --- !u!114 &1517141419
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3568,8 +3573,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 84
   m_CollisionDetection: 0
@@ -3812,7 +3817,7 @@ GameObject:
   - component: {fileID: 1617984449}
   - component: {fileID: 1617984448}
   - component: {fileID: 1617984452}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: NCP_Blanco
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3884,8 +3889,8 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
+  m_UseGravity: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 84
   m_CollisionDetection: 0
@@ -3917,7 +3922,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0b04ff7f43e63f48a50ad88b38c3ec4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3.5
+  moveSpeed: 2
+  rotationSpeed: 3
   stoppingDistance: 0.3
   patrolNodes:
   - {fileID: 743984870}
@@ -3926,8 +3932,8 @@ MonoBehaviour:
   - {fileID: 1256026931}
   - {fileID: 294084616}
   - {fileID: 222160039}
-  isChasing: 0
-  isAlerted: 0
+  searchDuration: 4
+  currentState: 0
 --- !u!1 &1627360055
 GameObject:
   m_ObjectHideFlags: 0
@@ -4146,7 +4152,7 @@ GameObject:
   - component: {fileID: 1879174990}
   - component: {fileID: 1879174989}
   - component: {fileID: 1879174988}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4251,7 +4257,7 @@ GameObject:
   - component: {fileID: 2037059432}
   - component: {fileID: 2037059431}
   - component: {fileID: 2037059430}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}

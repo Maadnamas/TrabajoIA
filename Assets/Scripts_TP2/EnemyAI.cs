@@ -4,136 +4,246 @@ using UnityEngine;
 [RequireComponent(typeof(FieldOfView))]
 public class EnemyAI : MonoBehaviour
 {
+    public enum State { Patrol, Chase, Alert, Return }
+
     [Header("Movimiento")]
     public float moveSpeed = 3.5f;
-    public float stoppingDistance = 0.3f;
+    public float rotationSpeed = 8f;
+    public float stoppingDistance = 0.5f;
 
-    [Header("Ruta de patrulla")]
+    [Header("Ruta de patrulla (en bucle)")]
     public List<Node> patrolNodes = new List<Node>();
-    private int currentPatrolIndex = 0;
+    private int patrolIndex = 0;
 
-    [Header("Estados")]
-    public bool isChasing = false;
-    public bool isAlerted = false;
+    [Header("Busqueda")]
+    public float searchDuration = 4f; // segundos que se queda buscando
 
     private Rigidbody rb;
     private FieldOfView fov;
-    private AStarPathfinder pathfinder;
-    private List<Node> currentPath = new List<Node>();
-    private int currentPathIndex = 0;
     private Graph graph;
-    private Vector3 targetPosition;
+    private AStarPathfinder pathfinder;
 
-    void Start()
+    private List<Node> path = new List<Node>();
+    private int pathIndex = 0;
+
+    private Vector3 lastKnownPlayerPos;
+    private float searchTimer = 0f;
+    private float repathTimer = 0f;
+
+    private const float repathInterval = 0.8f; // recalcula ruta cada 0.8 s
+
+    public State currentState = State.Patrol;
+
+    private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         fov = GetComponent<FieldOfView>();
-        pathfinder = FindObjectOfType<AStarPathfinder>();
         graph = FindObjectOfType<Graph>();
+        pathfinder = FindObjectOfType<AStarPathfinder>();
 
-        GoToNextPatrolNode();
+        if (AlertManager.Instance != null)
+            AlertManager.Instance.Register(this);
     }
 
-    void Update()
+    private void Start()
     {
-        if (fov.canSeePlayer)
+        MoveToNextPatrolNode();
+    }
+
+    private void OnDestroy()
+    {
+        if (AlertManager.Instance != null)
+            AlertManager.Instance.Unregister(this);
+    }
+
+    private void Update()
+    {
+        // --------- DETECCIÓN DEL PLAYER ---------
+        if (fov.canSeePlayer && fov.player != null)
         {
-            if (!isChasing)
+            lastKnownPlayerPos = fov.player.position;
+            if (currentState != State.Chase)
             {
-                isChasing = true;
-                isAlerted = true;
-                AlertAllies(fov.player.position);
-            }
-            ChasePlayer();
-        }
-        else if (isChasing)
-        {
-            if (Vector3.Distance(transform.position, fov.player.position) > fov.viewRadius * 1.5f)
-            {
-                isChasing = false;
-                GoToNextPatrolNode();
+                currentState = State.Chase;
+                if (AlertManager.Instance != null)
+                    AlertManager.Instance.BroadcastAlert(lastKnownPlayerPos, 6f);
             }
         }
-        else
+
+        // --------- FSM ---------
+        switch (currentState)
         {
-            Patrol();
+            case State.Patrol: Patrol(); break;
+            case State.Chase: Chase(); break;
+            case State.Alert: Alert(); break;
+            case State.Return: Return(); break;
         }
     }
 
-    void Patrol()
+    // ---------------- ESTADOS ----------------
+
+    private void Patrol()
     {
-        if (currentPath.Count == 0) return;
+        if (path == null || path.Count == 0)
+        {
+            MoveToNextPatrolNode();
+            return;
+        }
 
         MoveAlongPath();
 
-        float dist = Vector3.Distance(transform.position, currentPath[currentPathIndex].transform.position);
-        if (dist <= stoppingDistance)
+        // cuando llega al destino, pasa al siguiente nodo
+        if (pathIndex >= path.Count)
         {
-            currentPathIndex++;
-            if (currentPathIndex >= currentPath.Count)
+            MoveToNextPatrolNode();
+        }
+    }
+
+    private void Chase()
+    {
+        if (fov.player == null)
+        {
+            // si perdió referencia, pasa a alerta
+            currentState = State.Alert;
+            MoveToPosition(lastKnownPlayerPos);
+            searchTimer = 0f;
+            return;
+        }
+
+        // recalcular ruta cada cierto tiempo para optimizar
+        repathTimer += Time.deltaTime;
+        if (repathTimer >= repathInterval)
+        {
+            repathTimer = 0f;
+            MoveToPosition(fov.player.position);
+        }
+
+        if (path == null || path.Count == 0) return;
+
+        MoveAlongPath();
+
+        // Si lo pierde de vista, pasa a alerta
+        if (!fov.canSeePlayer)
+        {
+            currentState = State.Alert;
+            MoveToPosition(lastKnownPlayerPos);
+            searchTimer = 0f;
+        }
+    }
+
+    private void Alert()
+    {
+        // llegó a la última posición conocida
+        if (path == null || path.Count == 0)
+        {
+            searchTimer += Time.deltaTime;
+            if (searchTimer >= searchDuration)
             {
-                GoToNextPatrolNode();
+                currentState = State.Return;
+                MoveToClosestPatrolNode();
             }
+            return;
         }
-    }
 
-    void ChasePlayer()
-    {
-        Node startNode = graph.GetClosestNode(transform.position);
-        Node targetNode = graph.GetClosestNode(fov.player.position);
-        currentPath = pathfinder.FindPath(startNode, targetNode);
-        currentPathIndex = 0;
+        MoveAlongPath();
 
-        if (currentPath != null && currentPath.Count > 0)
+        if (pathIndex >= path.Count)
         {
-            MoveAlongPath();
+            path = null;
+            pathIndex = 0;
         }
     }
 
-    void MoveAlongPath()
+    private void Return()
     {
-        if (currentPath == null || currentPathIndex >= currentPath.Count) return;
+        if (path == null || path.Count == 0)
+        {
+            currentState = State.Patrol;
+            MoveToNextPatrolNode();
+            return;
+        }
 
-        Vector3 target = currentPath[currentPathIndex].transform.position;
-        Vector3 direction = (target - transform.position).normalized;
-        rb.MovePosition(transform.position + direction * moveSpeed * Time.deltaTime);
+        MoveAlongPath();
+
+        if (pathIndex >= path.Count)
+        {
+            currentState = State.Patrol;
+            MoveToNextPatrolNode();
+        }
     }
 
-    void GoToNextPatrolNode()
+    // ---------------- MOVIMIENTO ----------------
+
+    private void MoveAlongPath()
+    {
+        if (path == null || pathIndex >= path.Count) return;
+
+        Vector3 target = path[pathIndex].transform.position;
+        Vector3 dir = (target - transform.position);
+        dir.y = 0;
+        Vector3 moveDir = dir.normalized;
+
+        transform.position += moveDir * moveSpeed * Time.deltaTime;
+
+        if (moveDir.sqrMagnitude > 0.001f)
+        {
+            Quaternion rot = Quaternion.LookRotation(moveDir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, rot, rotationSpeed * Time.deltaTime);
+        }
+
+        if (Vector3.Distance(transform.position, target) <= stoppingDistance)
+        {
+            pathIndex++;
+        }
+    }
+
+    // ---------------- RUTAS ----------------
+
+    private void MoveToNextPatrolNode()
     {
         if (patrolNodes.Count == 0) return;
 
-        Node startNode = graph.GetClosestNode(transform.position);
-        Node nextNode = patrolNodes[currentPatrolIndex];
-        currentPath = pathfinder.FindPath(startNode, nextNode);
-        currentPathIndex = 0;
+        Node start = graph.GetClosestNode(transform.position);
+        Node target = patrolNodes[patrolIndex];
+        patrolIndex = (patrolIndex + 1) % patrolNodes.Count;
 
-        currentPatrolIndex++;
-        if (currentPatrolIndex >= patrolNodes.Count)
-            currentPatrolIndex = 0;
+        path = pathfinder.FindPath(start, target);
+        pathIndex = 0;
     }
 
-    void AlertAllies(Vector3 playerPosition)
+    private void MoveToClosestPatrolNode()
     {
-        EnemyAI[] allEnemies = FindObjectsOfType<EnemyAI>();
-        foreach (EnemyAI enemy in allEnemies)
+        if (patrolNodes.Count == 0) return;
+
+        Node closest = patrolNodes[0];
+        float min = Vector3.Distance(transform.position, closest.transform.position);
+        for (int i = 1; i < patrolNodes.Count; i++)
         {
-            if (enemy != this)
-            {
-                enemy.ReceiveAlert(playerPosition);
-            }
+            float dist = Vector3.Distance(transform.position, patrolNodes[i].transform.position);
+            if (dist < min) { min = dist; closest = patrolNodes[i]; }
         }
+
+        Node start = graph.GetClosestNode(transform.position);
+        path = pathfinder.FindPath(start, closest);
+        pathIndex = 0;
     }
 
-    public void ReceiveAlert(Vector3 playerPosition)
+    private void MoveToPosition(Vector3 worldPos)
     {
-        if (!isAlerted)
-        {
-            isAlerted = true;
-            Node startNode = graph.GetClosestNode(transform.position);
-            Node targetNode = graph.GetClosestNode(playerPosition);
-            currentPath = pathfinder.FindPath(startNode, targetNode);
-            currentPathIndex = 0;
-        }
+        Node start = graph.GetClosestNode(transform.position);
+        Node target = graph.GetClosestNode(worldPos);
+        path = pathfinder.FindPath(start, target);
+        pathIndex = 0;
+    }
+
+    // ---------------- ALERTA GLOBAL ----------------
+
+    public void OnAlert(Vector3 pos, float duration)
+    {
+        if (currentState == State.Chase) return; // el que ve al player no se mueve a la alerta
+        lastKnownPlayerPos = pos;
+        currentState = State.Alert;
+        MoveToPosition(pos);
+        searchTimer = 0f;
     }
 }
