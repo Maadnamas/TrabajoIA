@@ -8,163 +8,150 @@ public class EnemyAI : MonoBehaviour
 
     [Header("Movimiento")]
     public float moveSpeed = 3.5f;
-    public float rotationSpeed = 8f;
     public float stoppingDistance = 0.5f;
+    public float rotationSpeed = 8f;
 
-    [Header("Ruta de patrulla (en bucle)")]
+    [Header("Patrulla")]
     public List<Node> patrolNodes = new List<Node>();
     private int patrolIndex = 0;
 
-    [Header("Busqueda")]
-    public float searchDuration = 4f; // segundos que se queda buscando
+    [Header("Búsqueda")]
+    public float searchDuration = 4f;
 
-    private Rigidbody rb;
     private FieldOfView fov;
     private Graph graph;
     private AStarPathfinder pathfinder;
 
-    private List<Node> path = new List<Node>();
+    private List<Node> path = null;
     private int pathIndex = 0;
 
+    public State currentState = State.Patrol;
     private Vector3 lastKnownPlayerPos;
     private float searchTimer = 0f;
     private float repathTimer = 0f;
+    private const float repathInterval = 0.6f;
 
-    private const float repathInterval = 0.8f; // recalcula ruta cada 0.8 s
-
-    public State currentState = State.Patrol;
+    private float alertBroadcastTimer = 0f;
+    private const float alertBroadcastInterval = 1.0f;
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody>();
         fov = GetComponent<FieldOfView>();
         graph = FindObjectOfType<Graph>();
         pathfinder = FindObjectOfType<AStarPathfinder>();
 
         if (AlertManager.Instance != null)
+        {
             AlertManager.Instance.Register(this);
+            Debug.Log($"[EnemyAI] {name} registrado en AlertManager en Awake.");
+        }
     }
 
     private void Start()
     {
+        if (AlertManager.Instance != null) AlertManager.Instance.Register(this);
         MoveToNextPatrolNode();
     }
 
     private void OnDestroy()
     {
-        if (AlertManager.Instance != null)
-            AlertManager.Instance.Unregister(this);
+        if (AlertManager.Instance != null) AlertManager.Instance.Unregister(this);
     }
 
     private void Update()
     {
-        // --------- DETECCIÓN DEL PLAYER ---------
         if (fov.canSeePlayer && fov.player != null)
         {
             lastKnownPlayerPos = fov.player.position;
+
             if (currentState != State.Chase)
             {
                 currentState = State.Chase;
+                Debug.Log($"[EnemyAI] {name} vio al player → CHASE");
+            }
+
+            alertBroadcastTimer += Time.deltaTime;
+            if (alertBroadcastTimer >= alertBroadcastInterval)
+            {
+                alertBroadcastTimer = 0f;
                 if (AlertManager.Instance != null)
-                    AlertManager.Instance.BroadcastAlert(lastKnownPlayerPos, 6f);
+                    AlertManager.Instance.BroadcastAlert(lastKnownPlayerPos, searchDuration);
             }
         }
 
-        // --------- FSM ---------
         switch (currentState)
         {
-            case State.Patrol: Patrol(); break;
-            case State.Chase: Chase(); break;
-            case State.Alert: Alert(); break;
-            case State.Return: Return(); break;
+            case State.Patrol: UpdatePatrol(); break;
+            case State.Chase: UpdateChase(); break;
+            case State.Alert: UpdateAlert(); break;
+            case State.Return: UpdateReturn(); break;
         }
     }
 
-    // ---------------- ESTADOS ----------------
-
-    private void Patrol()
+    void UpdatePatrol()
     {
-        if (path == null || path.Count == 0)
+        if (!HasPath()) { MoveToNextPatrolNode(); return; }
+        FollowPath();
+        if (pathIndex >= path.Count) MoveToNextPatrolNode();
+    }
+
+    void UpdateChase()
+    {
+        if (fov.canSeePlayer && fov.player != null)
         {
-            MoveToNextPatrolNode();
+            Vector3 dir = (fov.player.position - transform.position);
+            dir.y = 0;
+            Vector3 moveDir = dir.normalized;
+            transform.position += moveDir * moveSpeed * Time.deltaTime;
+            if (moveDir.sqrMagnitude > 0.001f)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(moveDir), rotationSpeed * Time.deltaTime);
+            }
+            lastKnownPlayerPos = fov.player.position;
             return;
         }
 
-        MoveAlongPath();
-
-        // cuando llega al destino, pasa al siguiente nodo
-        if (pathIndex >= path.Count)
-        {
-            MoveToNextPatrolNode();
-        }
+        currentState = State.Alert;
+        AttemptMoveToVisibleNode(lastKnownPlayerPos);
+        searchTimer = 0f;
+        Debug.Log($"[EnemyAI] {name} perdió al player → ALERT");
     }
 
-    private void Chase()
+    void UpdateAlert()
     {
-        if (fov.player == null)
-        {
-            // si perdió referencia, pasa a alerta
-            currentState = State.Alert;
-            MoveToPosition(lastKnownPlayerPos);
-            searchTimer = 0f;
-            return;
-        }
-
-        // recalcular ruta cada cierto tiempo para optimizar
-        repathTimer += Time.deltaTime;
-        if (repathTimer >= repathInterval)
-        {
-            repathTimer = 0f;
-            MoveToPosition(fov.player.position);
-        }
-
-        if (path == null || path.Count == 0) return;
-
-        MoveAlongPath();
-
-        // Si lo pierde de vista, pasa a alerta
-        if (!fov.canSeePlayer)
-        {
-            currentState = State.Alert;
-            MoveToPosition(lastKnownPlayerPos);
-            searchTimer = 0f;
-        }
-    }
-
-    private void Alert()
-    {
-        // llegó a la última posición conocida
-        if (path == null || path.Count == 0)
+        if (!HasPath())
         {
             searchTimer += Time.deltaTime;
+            transform.Rotate(Vector3.up * rotationSpeed * 50f * Time.deltaTime);
+
             if (searchTimer >= searchDuration)
             {
                 currentState = State.Return;
                 MoveToClosestPatrolNode();
+                Debug.Log($"[EnemyAI] {name} terminó de buscar → RETURN");
             }
             return;
         }
 
-        MoveAlongPath();
+        FollowPath();
 
         if (pathIndex >= path.Count)
         {
             path = null;
             pathIndex = 0;
+            searchTimer = 0f;
         }
     }
 
-    private void Return()
+    void UpdateReturn()
     {
-        if (path == null || path.Count == 0)
+        if (!HasPath())
         {
-            currentState = State.Patrol;
             MoveToNextPatrolNode();
+            currentState = State.Patrol;
             return;
         }
-
-        MoveAlongPath();
-
+        FollowPath();
         if (pathIndex >= path.Count)
         {
             currentState = State.Patrol;
@@ -172,11 +159,11 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
-    // ---------------- MOVIMIENTO ----------------
+    bool HasPath() => path != null && path.Count > 0 && pathIndex < path.Count;
 
-    private void MoveAlongPath()
+    void FollowPath()
     {
-        if (path == null || pathIndex >= path.Count) return;
+        if (!HasPath()) return;
 
         Vector3 target = path[pathIndex].transform.position;
         Vector3 dir = (target - transform.position);
@@ -184,66 +171,177 @@ public class EnemyAI : MonoBehaviour
         Vector3 moveDir = dir.normalized;
 
         transform.position += moveDir * moveSpeed * Time.deltaTime;
-
         if (moveDir.sqrMagnitude > 0.001f)
         {
-            Quaternion rot = Quaternion.LookRotation(moveDir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, rot, rotationSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(moveDir), rotationSpeed * Time.deltaTime);
         }
 
         if (Vector3.Distance(transform.position, target) <= stoppingDistance)
-        {
             pathIndex++;
-        }
     }
 
-    // ---------------- RUTAS ----------------
-
-    private void MoveToNextPatrolNode()
+    bool IsPositionVisibleFrom(Vector3 worldPos, Vector3 fromPosition)
     {
-        if (patrolNodes.Count == 0) return;
+        Vector3 dir = (worldPos - fromPosition);
+        float dist = dir.magnitude;
+        if (dist < 0.001f) return true;
+        dir.Normalize();
+        Vector3 origin = fromPosition + Vector3.up * 0.8f;
+        if (Physics.Raycast(origin, dir, out RaycastHit hit, dist, fov.obstacleMask))
+        {
+            return false;
+        }
+        return true;
+    }
 
-        Node start = graph.GetClosestNode(transform.position);
-        Node target = patrolNodes[patrolIndex];
-        patrolIndex = (patrolIndex + 1) % patrolNodes.Count;
+    Node FindNodeWithLineOfSightTo(Vector3 worldPos)
+    {
+        if (graph == null || graph.nodes == null || graph.nodes.Count == 0) return null;
 
-        path = pathfinder.FindPath(start, target);
+        Node best = null;
+        float bestScore = Mathf.Infinity;
+
+        foreach (Node n in graph.nodes)
+        {
+            if (n == null) continue;
+
+            if (!IsPositionVisibleFrom(worldPos, n.transform.position)) continue;
+
+            float d = Vector3.Distance(transform.position, n.transform.position);
+
+            if (d < bestScore)
+            {
+                best = n;
+                bestScore = d;
+            }
+        }
+
+        return best;
+    }
+
+    void AttemptMoveToVisibleNode(Vector3 worldPos)
+    {
+        if (IsPositionVisibleFrom(worldPos, transform.position))
+        {
+            Node closestToTarget = graph.GetClosestNode(worldPos);
+            if (closestToTarget != null)
+            {
+                path = pathfinder.FindPath(graph.GetClosestNode(transform.position), closestToTarget);
+                pathIndex = 0;
+                return;
+            }
+        }
+
+        Node visibleNode = FindNodeWithLineOfSightTo(worldPos);
+
+        if (visibleNode != null)
+        {
+            Node start = graph.GetClosestNode(transform.position);
+            List<Node> p = pathfinder.FindPath(start, visibleNode);
+            if (p != null && p.Count > 0)
+            {
+                path = p;
+                pathIndex = 0;
+                return;
+            }
+        }
+
+        Node fallback = graph.GetClosestNode(worldPos);
+        if (fallback != null)
+        {
+            List<Node> p2 = pathfinder.FindPath(graph.GetClosestNode(transform.position), fallback);
+            if (p2 != null && p2.Count > 0)
+            {
+                path = p2;
+                pathIndex = 0;
+                return;
+            }
+        }
+
+        path = null;
         pathIndex = 0;
     }
 
-    private void MoveToClosestPatrolNode()
+    void AttemptMoveTo(Vector3 worldPos)
     {
-        if (patrolNodes.Count == 0) return;
+        AttemptMoveToVisibleNode(worldPos);
+    }
 
+    void MoveToNextPatrolNode()
+    {
+        if (patrolNodes == null || patrolNodes.Count == 0) { path = null; return; }
+
+        Node nextNode = patrolNodes[patrolIndex];
+        patrolIndex = (patrolIndex + 1) % patrolNodes.Count;
+
+        if (IsPositionVisibleFrom(nextNode.transform.position, transform.position))
+        {
+            Node start = graph.GetClosestNode(transform.position);
+            List<Node> direct = pathfinder.FindPath(start, nextNode);
+            if (direct != null && direct.Count > 0)
+            {
+                path = direct;
+                pathIndex = 0;
+                return;
+            }
+            else
+            {
+                path = null;
+                pathIndex = 0;
+                return;
+            }
+        }
+        else
+        {
+            Node visibleNode = FindNodeWithLineOfSightTo(nextNode.transform.position);
+            if (visibleNode != null)
+            {
+                Node start = graph.GetClosestNode(transform.position);
+                List<Node> p = pathfinder.FindPath(start, visibleNode);
+                if (p != null && p.Count > 0)
+                {
+                    path = p;
+                    pathIndex = 0;
+                    return;
+                }
+            }
+
+            Node start2 = graph.GetClosestNode(transform.position);
+            List<Node> fallback = pathfinder.FindPath(start2, nextNode);
+            if (fallback != null && fallback.Count > 0)
+            {
+                path = fallback;
+                pathIndex = 0;
+                return;
+            }
+
+            path = null;
+            pathIndex = 0;
+        }
+    }
+
+    void MoveToClosestPatrolNode()
+    {
+        if (patrolNodes == null || patrolNodes.Count == 0) { path = null; return; }
         Node closest = patrolNodes[0];
         float min = Vector3.Distance(transform.position, closest.transform.position);
         for (int i = 1; i < patrolNodes.Count; i++)
         {
-            float dist = Vector3.Distance(transform.position, patrolNodes[i].transform.position);
-            if (dist < min) { min = dist; closest = patrolNodes[i]; }
+            float d = Vector3.Distance(transform.position, patrolNodes[i].transform.position);
+            if (d < min) { min = d; closest = patrolNodes[i]; }
         }
-
-        Node start = graph.GetClosestNode(transform.position);
-        path = pathfinder.FindPath(start, closest);
-        pathIndex = 0;
+        List<Node> p = pathfinder.FindPath(graph.GetClosestNode(transform.position), closest);
+        if (p == null || p.Count == 0) { path = null; pathIndex = 0; } else { path = p; pathIndex = 0; }
     }
-
-    private void MoveToPosition(Vector3 worldPos)
-    {
-        Node start = graph.GetClosestNode(transform.position);
-        Node target = graph.GetClosestNode(worldPos);
-        path = pathfinder.FindPath(start, target);
-        pathIndex = 0;
-    }
-
-    // ---------------- ALERTA GLOBAL ----------------
 
     public void OnAlert(Vector3 pos, float duration)
     {
-        if (currentState == State.Chase) return; // el que ve al player no se mueve a la alerta
+        if (currentState == State.Chase) return;
+
+        Debug.Log($"[Alert] {name} recibió alerta → va a {pos}");
         lastKnownPlayerPos = pos;
         currentState = State.Alert;
-        MoveToPosition(pos);
+        AttemptMoveToVisibleNode(pos);
         searchTimer = 0f;
     }
 }

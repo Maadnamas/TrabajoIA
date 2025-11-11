@@ -9,7 +9,6 @@ public class AStarPathfinder : MonoBehaviour
     public bool drawDebugPaths = true;
     public Color debugColor = Color.magenta;
 
-    // Guarda el último path calculado (para depuración)
     private List<Node> lastPath = new List<Node>();
 
     private void Awake()
@@ -25,7 +24,6 @@ public class AStarPathfinder : MonoBehaviour
             return new List<Node>();
         }
 
-        // Reiniciamos costos de todos los nodos antes de cada búsqueda
         ResetNodeCosts();
 
         List<Node> openSet = new List<Node>();
@@ -37,7 +35,6 @@ public class AStarPathfinder : MonoBehaviour
 
         while (openSet.Count > 0)
         {
-            // Elegir el nodo con menor fCost
             Node currentNode = openSet[0];
             for (int i = 1; i < openSet.Count; i++)
             {
@@ -51,7 +48,6 @@ public class AStarPathfinder : MonoBehaviour
             openSet.Remove(currentNode);
             closedSet.Add(currentNode);
 
-            // Si llegamos al destino → reconstruimos el camino
             if (currentNode == targetNode)
             {
                 List<Node> finalPath = RetracePath(startNode, targetNode);
@@ -61,7 +57,6 @@ public class AStarPathfinder : MonoBehaviour
                 return finalPath;
             }
 
-            // Recorremos vecinos
             foreach (Node neighbor in currentNode.connections)
             {
                 if (neighbor == null || closedSet.Contains(neighbor))
@@ -81,12 +76,10 @@ public class AStarPathfinder : MonoBehaviour
             }
         }
 
-        // Si no hay camino posible
         Debug.LogWarning("⚠️ A*: no se encontró camino entre " + startNode.name + " y " + targetNode.name);
         return new List<Node>();
     }
 
-    // Limpia los costos previos de todos los nodos antes de cada búsqueda
     private void ResetNodeCosts()
     {
         foreach (Node n in graph.nodes)
@@ -97,7 +90,6 @@ public class AStarPathfinder : MonoBehaviour
         }
     }
 
-    // Reconstruye el camino al llegar al destino
     private List<Node> RetracePath(Node startNode, Node endNode)
     {
         List<Node> path = new List<Node>();
@@ -114,7 +106,6 @@ public class AStarPathfinder : MonoBehaviour
         return path;
     }
 
-    // Dibuja líneas en la escena para visualizar el camino
     private void DrawDebugPath(List<Node> path)
     {
         if (path == null || path.Count < 2) return;

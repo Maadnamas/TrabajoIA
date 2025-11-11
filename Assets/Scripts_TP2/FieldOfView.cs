@@ -2,76 +2,67 @@ using UnityEngine;
 
 public class FieldOfView : MonoBehaviour
 {
-    [Header("Configuración del FOV")]
     public float viewRadius = 8f;
-    [Range(0, 360)]
-    public float viewAngle = 120f;
-
-    [Header("Referencias")]
+    [Range(0, 360)] public float viewAngle = 120f;
     public LayerMask targetMask;
     public LayerMask obstacleMask;
 
     [HideInInspector] public bool canSeePlayer = false;
     [HideInInspector] public Transform player;
 
-    private void Start()
+    private void Awake()
     {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
-            player = playerObj.transform;
+        TryFindPlayer();
+    }
+
+    private void TryFindPlayer()
+    {
+        GameObject p = GameObject.FindGameObjectWithTag("Player");
+        if (p != null) player = p.transform;
     }
 
     void Update()
     {
+        if (player == null) TryFindPlayer();
         FindVisibleTargets();
     }
 
     void FindVisibleTargets()
     {
         canSeePlayer = false;
-
-        if (player == null)
-            return;
+        if (player == null) return;
 
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
-        float distToPlayer = Vector3.Distance(transform.position, player.position);
-
-        if (distToPlayer < viewRadius)
+        float dist = Vector3.Distance(transform.position, player.position);
+        if (dist <= viewRadius)
         {
             if (Vector3.Angle(transform.forward, dirToPlayer) < viewAngle / 2f)
             {
-                if (!Physics.Raycast(transform.position + Vector3.up * 1f, dirToPlayer, distToPlayer, obstacleMask))
+                if (!Physics.Raycast(transform.position + Vector3.up * 0.8f, dirToPlayer, dist, obstacleMask))
                 {
                     canSeePlayer = true;
+                    return;
                 }
             }
         }
+        canSeePlayer = false;
     }
 
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, viewRadius);
-
-        Vector3 leftBoundary = DirFromAngle(-viewAngle / 2, false);
-        Vector3 rightBoundary = DirFromAngle(viewAngle / 2, false);
-
+        Vector3 l = DirFromAngle(-viewAngle / 2, false) * viewRadius;
+        Vector3 r = DirFromAngle(viewAngle / 2, false) * viewRadius;
         Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(transform.position, transform.position + leftBoundary * viewRadius);
-        Gizmos.DrawLine(transform.position, transform.position + rightBoundary * viewRadius);
-
-        if (canSeePlayer && player != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(transform.position, player.position);
-        }
+        Gizmos.DrawLine(transform.position, transform.position + l);
+        Gizmos.DrawLine(transform.position, transform.position + r);
+        if (canSeePlayer && player != null) { Gizmos.color = Color.red; Gizmos.DrawLine(transform.position, player.position); }
     }
 
-    public Vector3 DirFromAngle(float angleInDegrees, bool angleIsGlobal)
+    public Vector3 DirFromAngle(float angleDeg, bool global)
     {
-        if (!angleIsGlobal)
-            angleInDegrees += transform.eulerAngles.y;
-
-        return new Vector3(Mathf.Sin(angleInDegrees * Mathf.Deg2Rad), 0, Mathf.Cos(angleInDegrees * Mathf.Deg2Rad));
+        if (!global) angleDeg += transform.eulerAngles.y;
+        return new Vector3(Mathf.Sin(angleDeg * Mathf.Deg2Rad), 0, Mathf.Cos(angleDeg * Mathf.Deg2Rad));
     }
 }
