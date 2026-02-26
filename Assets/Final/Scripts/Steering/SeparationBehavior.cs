@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 public class SeparationBehavior : MonoBehaviour
@@ -33,5 +34,10 @@ public class SeparationBehavior : MonoBehaviour
         }
 
         return force;
+    }
+
+    internal Vector3 Calculate(GameObject[] gameObjects)
+    {
+        throw new NotImplementedException();
     }
 }

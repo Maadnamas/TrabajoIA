@@ -74,17 +74,23 @@ public class AgentMovement : MonoBehaviour
 
     void RotateToMovement()
     {
-        if (velocity.magnitude < 0.1f)
+        if (velocity.magnitude < 0.05f)
             return;
 
-        Quaternion rot =
-            Quaternion.LookRotation(velocity);
+        Vector3 flatVel = velocity;
+        flatVel.y = 0;
+
+        if (flatVel == Vector3.zero)
+            return;
+
+        Quaternion targetRot =
+            Quaternion.LookRotation(flatVel.normalized);
 
         transform.rotation =
-            Quaternion.Slerp(
+            Quaternion.RotateTowards(
                 transform.rotation,
-                rot,
-                rotationSpeed * Time.deltaTime);
+                targetRot,
+                rotationSpeed * 200f * Time.deltaTime);
     }
     public void AddExternalForce(Vector3 force)
     {
