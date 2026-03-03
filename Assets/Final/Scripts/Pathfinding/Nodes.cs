@@ -24,11 +24,9 @@ public class Nodes : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        // Dibuja el nodo
         Gizmos.color = Color.yellow;
         Gizmos.DrawSphere(transform.position, 0.3f);
 
-        // Dibuja conexiones
         Gizmos.color = Color.white;
 
         foreach (Nodes n in neighbors)

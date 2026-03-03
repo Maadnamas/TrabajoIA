@@ -19,11 +19,18 @@ public class LeaderFSM : AgentFSM
 
     protected override void OnAttack()
     {
+        path.enabled = false;
+
         Transform enemy = fov.GetNearestEnemy();
 
         if (enemy == null) return;
 
-        path.enabled = false;
+        GetComponent<AgentMovement>()
+            .SetPath(
+                new System.Collections.Generic.List<Vector3>
+                {
+                enemy.position
+                });
     }
 
     protected override void OnFlee()
@@ -33,7 +40,7 @@ public class LeaderFSM : AgentFSM
         AgentMovement move =
             GetComponent<AgentMovement>();
 
-        move.enabled = true;
+        if (move == null) return;
 
         Transform enemy =
             fov.GetNearestEnemy();
@@ -53,7 +60,7 @@ public class LeaderFSM : AgentFSM
         }
 
         Vector3 desiredPos =
-            transform.position + fleeDir * 50f;
+            transform.position + fleeDir * 60f;
 
         ThetaStar theta =
             new ThetaStar(path.obstacleMask);
@@ -63,20 +70,9 @@ public class LeaderFSM : AgentFSM
                 transform.position,
                 desiredPos);
 
-        // Si hay camino → usarlo
         if (newPath != null && newPath.Count > 0)
         {
             move.SetPath(newPath);
-        }
-        else
-        {
-            // Fallback: ir directo
-            List<Vector3> fallback =
-                new List<Vector3>();
-
-            fallback.Add(desiredPos);
-
-            move.SetPath(fallback);
         }
     }
 }

@@ -55,38 +55,31 @@ public class BoidFSM : AgentFSM
     {
         follow.enabled = false;
 
+        if (movement == null) return;
+
         Transform enemy = fov.GetNearestEnemy();
 
-        // Si no ve enemigo, huye en dirección opuesta al líder
-        if (enemy == null)
+        Vector3 fleeDir;
+
+        if (enemy != null)
         {
-            Vector3 randomDir =
-                Random.insideUnitSphere;
-
-            randomDir.y = 0;
-
-            Vector3 fleePos =
-                transform.position + randomDir * 5f;
-
-            movement.SetPath(
-                new System.Collections.Generic.List<Vector3>
-                {
-                fleePos
-                });
-
-            return;
+            fleeDir =
+                (transform.position - enemy.position).normalized;
+        }
+        else
+        {
+            fleeDir =
+                Random.insideUnitSphere.normalized;
+            fleeDir.y = 0;
         }
 
-        Vector3 dir =
-            (transform.position - enemy.position).normalized;
-
-        Vector3 fleePosition =
-            transform.position + dir * 6f;
+        Vector3 fleePos =
+            transform.position + fleeDir * 20f;
 
         movement.SetPath(
             new System.Collections.Generic.List<Vector3>
             {
-            fleePosition
+            fleePos
             });
     }
 

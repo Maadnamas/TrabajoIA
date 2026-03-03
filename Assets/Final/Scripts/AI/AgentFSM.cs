@@ -8,7 +8,15 @@ public class AgentFSM : MonoBehaviour
     public float maxHP = 100f;
     public float currentHP;
 
+    [Header("Flee Healing")]
+    public float healAmount = 5f;
+    public float healInterval = 1.5f;
+
+    protected float lastHealTime;
+
     protected FOV fov;
+
+    protected bool isDead = false;
 
     protected virtual void Awake()
     {
@@ -18,12 +26,20 @@ public class AgentFSM : MonoBehaviour
 
     protected virtual void Update()
     {
+        if (isDead) return;
+
         UpdateState();
         HandleState();
     }
 
     protected virtual void UpdateState()
     {
+        if (currentHP <= 0)
+        {
+            currentState = AgentState.Dead;
+            return;
+        }
+
         if (currentHP <= maxHP * 0.3f)
         {
             currentState = AgentState.Flee;
@@ -57,6 +73,11 @@ public class AgentFSM : MonoBehaviour
 
             case AgentState.Flee:
                 OnFlee();
+                HealWhileFleeing();
+                break;
+
+            case AgentState.Dead:
+                Die();
                 break;
         }
     }
@@ -66,30 +87,47 @@ public class AgentFSM : MonoBehaviour
     protected virtual void OnAttack() { }
     protected virtual void OnFlee() { }
 
+    void HealWhileFleeing()
+    {
+        if (Time.time - lastHealTime < healInterval)
+            return;
+
+        lastHealTime = Time.time;
+
+        currentHP += healAmount;
+        currentHP = Mathf.Min(currentHP, maxHP);
+    }
+
     public void TakeDamage(float dmg)
     {
-        if (currentState == AgentState.Dead) return;
+        if (isDead) return;
 
         currentHP -= dmg;
         currentHP = Mathf.Max(currentHP, 0);
-
-        if (currentHP <= 0)
-        {
-            Die();
-        }
     }
 
-    void Die()
+    protected virtual void Die()
     {
+        if (isDead) return;
+
+        isDead = true;
+
         currentState = AgentState.Dead;
 
-        AgentMovement move = GetComponent<AgentMovement>();
+        AgentMovement move =
+            GetComponent<AgentMovement>();
 
         if (move != null)
-        {
             move.enabled = false;
-        }
+
+        LeaderFollowBehavior follow =
+            GetComponent<LeaderFollowBehavior>();
+
+        if (follow != null)
+            follow.enabled = false;
 
         this.enabled = false;
+
+        Destroy(gameObject, 1.5f);
     }
 }
